@@ -1,12 +1,471 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Лабораторная работа №4 — Исследование многопоточности процессора</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Лабораторная работа 4</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f5f6fa;color:#1a1a2e;line-height:1.6}
+header{background:linear-gradient(135deg,#3730a3,#7c3aed);color:#fff;padding:48px 20px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+h1{font-size:36px;margin-bottom:8px}
+.sub{color:rgba(255,255,255,0.85);font-size:20px}
+main{padding:24px 0 48px}
+section{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:24px;margin-bottom:20px}
+section h2{font-size:22px;margin-bottom:12px;color:#1e1b4b}
+h3{font-size:17px;margin:16px 0 8px}
+p{margin:8px 0}
+ul,ol{padding-left:20px;margin:8px 0}
+li{margin:4px 0}
+a{color:#4f46e5}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card{background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:16px}
+.card strong{display:block;margin-bottom:6px}
+.warn{background:#fffbeb;border-color:#fde68a;padding:14px;border-radius:12px;margin-top:12px}
+.info{background:#eef2ff;border:1px solid #c7d2fe;padding:14px;border-radius:12px;margin-top:12px}
+.ok{background:#ecfdf5;border:1px solid #bbf7d0;padding:14px;border-radius:12px;margin-top:12px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:16px 0}
+select{border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:14px}
+button{border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer;color:#fff;background:#4f46e5}
+button:hover{background:#4338ca}
+button:disabled{opacity:0.5;cursor:not-allowed}
+.btn2{color:#333;background:#e5e7eb}
+.btn2:hover{background:#d1d5db}
+#status{display:none;margin:10px 0;padding:10px;border-radius:8px;background:#fff7ed;color:#b45309;font-size:14px;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+th,td{padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:left}
+th{background:#f8fafc;font-weight:800;color:#475467}
+.pill{display:inline-block;padding:3px 8px;border-radius:99px;font-size:12px;font-weight:800;background:#eef2ff;color:#4338ca}
+.pill.good{background:#dcfce7;color:#166534}
+.pill.bad{background:#fef3c7;color:#92400e}
+.chart-box{border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-top:14px;background:#fcfcfd}
+canvas{width:100%;height:300px;display:block}
+pre{background:#0f172a;color:#e2e8f0;padding:16px;border-radius:12px;overflow-x:auto;font-size:13px;line-height:1.5;margin:10px 0}
+.tabs{display:flex;gap:6px;margin:12px 0}
+.tab{color:#333;background:#e5e7eb;border-radius:8px}
+.tab.on{color:#fff;background:#4f46e5}
+.hidden{display:none}
+footer{text-align:center;padding:24px;color:#9ca3af;background:#fff;border-top:1px solid #e5e7eb}
+@media(max-width:700px){.grid2{grid-template-columns:1fr}h1{font-size:26px}}
+</style>
+</head>
+<body>
+  <header>
+<div class="wrap">
+<h1>Лабораторная работа №4</h1>
+<p class="sub">Исследование многопоточности процессора</p>
+</div>
+</header>
+
+<main class="wrap">
+
+<nav style="background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:20px;margin-bottom:20px">
+<h2 style="font-size:18px;margin-bottom:8px">Содержание</h2>
+<a href="#goal">Цель работы</a> &middot;
+<a href="#equip">Оборудование</a> &middot;
+<a href="#theory">Теория</a> &middot;
+<a href="#desc">Описание программы</a> &middot;
+<a href="#experiment">Эксперимент</a> &middot;
+<a href="#sample">Таблица результатов</a> &middot;
+<a href="#code">Код</a> &middot;
+<a href="#conclusion">Выводы</a>
+</nav>
+
+<section id="goal">
+<h2>Цель работы</h2>
+<p>Изучить влияние числа потоков на производительность вычислений. Создать массив большого размера, реализовать вычисление суммы элементов массива в однопоточном режиме, с использованием 2 потоков и с использованием 4 потоков. Измерить время выполнения и сравнить результаты.</p>
+</section>
+
+<section id="equip">
+<h2>Оборудование</h2>
+<div class="grid2">
+<div class="card">
+<strong>Аппаратное обеспечение</strong>
+<ul>
+<li>Персональный компьютер</li>
+<li>Многоядерный процессор</li>
+<li>Оперативная память от 4 ГБ</li>
+</ul>
+</div>
+<div class="card">
+<strong>Программное обеспечение</strong>
+<ul>
+<li>Python 3 или C++</li>
+<li>Модули threading, time, matplotlib</li>
+<li>Браузер с поддержкой Web Workers</li>
+</ul>
+</div>
+</div>
+</section>
+
+<section id="theory">
+<h2>Теоретическая справка</h2>
+<p>Многопоточность позволяет выполнять несколько потоков параллельно. Если задачу можно разделить на независимые части, каждый поток обрабатывает свою часть данных, что сокращает общее время выполнения.</p>
+<p>При суммировании массива каждый поток считает сумму своего диапазона элементов. После завершения работы всех потоков частичные суммы складываются.</p>
+<div class="warn">
+<strong>Особенность Python (GIL)</strong>
+<p>В CPython есть GIL (Global Interpreter Lock). Из-за него модуль threading не ускоряет вычислительные задачи. Для настоящего параллелизма в Python нужен модуль multiprocessing. В C++ потоки std::thread работают по-настоящему параллельно.</p>
+</div>
+</section>
+
+<section id="desc">
+<h2>Описание программы</h2>
+<ol>
+<li>Создается массив из 10 000 000 случайных чисел от 1 до 100.</li>
+<li>В однопоточном режиме сумма считается одним циклом.</li>
+<li>В многопоточном режиме массив делится на равные части по числу потоков.</li>
+<li>Каждый поток считает сумму своей части.</li>
+<li>Частичные суммы складываются в итоговый результат.</li>
+<li>Для каждого варианта измеряется время выполнения.</li>
+</ol>
+</section><section id="experiment">
+<h2>Интерактивный эксперимент</h2>
+<p>Запустите демонстрацию прямо в браузере. Многопоточность реализована через Web Workers.</p>
+
+<div class="controls">
+<div>
+<label for="sz">Размер массива</label>
+<select id="sz">
+<option value="1000000">1 000 000</option>
+<option value="5000000" selected>5 000 000</option>
+<option value="10000000">10 000 000</option>
+</select>
+</div>
+<button id="run">Запустить</button>
+<button id="reset" class="btn2">Сбросить</button>
+</div>
+
+<div id="status"></div>
+
+<table>
+<thead>
+<tr><th>Потоки</th><th>Время</th><th>Сумма</th><th>Ускорение</th></tr>
+</thead>
+<tbody id="tbody">
+<tr><td colspan="4">Нажмите Запустить для получения результатов</td></tr>
+</tbody>
+</table>
+
+<div class="chart-box">
+<canvas id="chart" width="900" height="300"></canvas>
+</div>
+
+<div class="info">
+<strong>Примечание</strong>
+<p>Результаты зависят от процессора, браузера и загруженности системы. Web Workers имеют накладные расходы на передачу данных между потоками.</p>
+</div>
+</section>
+
+<section id="sample">
+<h2>Пример таблицы результатов</h2>
+<p>Типовые результаты для массива из 10 000 000 элементов (C++):</p>
+<table>
+<thead>
+<tr><th>Потоки</th><th>Время, сек</th><th>Ускорение</th></tr>
+</thead>
+<tbody>
+<tr><td>1 поток</td><td>0.028</td><td><span class="pill">x1.00</span></td></tr>
+<tr><td>2 потока</td><td>0.015</td><td><span class="pill good">x1.87</span></td></tr>
+<tr><td>4 потока</td><td>0.008</td><td><span class="pill good">x3.50</span></td></tr>
+</tbody>
+</table>
+</section>
+
+<section id="code">
+<h2>Исходный код</h2>
+<div class="tabs">
+<button class="tab on" data-lang="py">Python</button>
+<button class="tab" data-lang="cp">C++</button>
+</div>
+
+<pre id="py"><code>import threading
+import time
+import random
+
+ARRAY_SIZE = 10_000_000
+array = [random.randint(1, 100) for _ in range(ARRAY_SIZE)]
+
+def sum_part(arr, start, end, results, index):
+    s = 0
+    for i in range(start, end):
+        s += arr[i]
+    results[index] = s
+
+def single_thread_sum(arr):
+    s = 0
+    for v in arr:
+        s += v
+    return s
+
+def multi_thread_sum(arr, num_threads):
+    threads = []
+    results = [0] * num_threads
+    chunk = len(arr) // num_threads
+    for i in range(num_threads):
+        start = i * chunk
+        end = start + chunk if i &lt; num_threads - 1 else len(arr)
+        t = threading.Thread(target=sum_part, args=(arr, start, end, results, i))
+        threads.append(t)
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    return sum(results)
+
+start = time.time()
+s1 = single_thread_sum(array)
+t1 = time.time() - start
+print(f"1 поток: сумма={s1}, время={t1:.4f} сек")
+
+start = time.time()
+s2 = multi_thread_sum(array, 2)
+t2 = time.time() - start
+print(f"2 потока: сумма={s2}, время={t2:.4f} сек")
+
+start = time.time()
+s4 = multi_thread_sum(array, 4)
+t4 = time.time() - start
+print(f"4 потока: сумма={s4}, время={t4:.4f} сек")</code></pre>
+
+<pre id="cp" class="hidden"><code>#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;thread&gt;
+#include &lt;chrono&gt;
+#include &lt;random&gt;
+
+const int SIZE = 10000000;
+
+void partial_sum(const std::vector&lt;int&gt;&amp; arr, int start, int end, long long&amp; result) {
+    long long s = 0;
+    for (int i = start; i &lt; end; i++) s += arr[i];
+    result = s;
+}
+
+long long single_sum(const std::vector&lt;int&gt;&amp; arr) {
+    long long s = 0;
+    for (int v : arr) s += v;
+    return s;
+}
+
+long long multi_sum(const std::vector&lt;int&gt;&amp; arr, int n) {
+    std::vector&lt;std::thread&gt; threads;
+    std::vector&lt;long long&gt; results(n, 0);
+    int chunk = arr.size() / n;
+    for (int i = 0; i &lt; n; i++) {
+        int s = i * chunk;
+        int e = (i == n - 1) ? arr.size() : s + chunk;
+        threads.emplace_back(partial_sum, std::ref(arr), s, e, std::ref(results[i]));
+    }
+    for (auto&amp; t : threads) t.join();
+    long long total = 0;
+    for (long long r : results) total += r;
+    return total;
+}
+
+int main() {
+    std::vector&lt;int&gt; arr(SIZE);
+    std::mt19937 gen(42);
+    std::uniform_int_distribution&lt;int&gt; dist(1, 100);
+    for (int&amp; v : arr) v = dist(gen);
+
+    auto t0 = std::chrono::high_resolution_clock::now();
+    long long s1 = single_sum(arr);
+    auto t1 = std::chrono::high_resolution_clock::now();
+    double d1 = std::chrono::duration&lt;double&gt;(t1 - t0).count();
+
+    t0 = std::chrono::high_resolution_clock::now();
+    long long s2 = multi_sum(arr, 2);
+    t1 = std::chrono::high_resolution_clock::now();
+    double d2 = std::chrono::duration&lt;double&gt;(t1 - t0).count();
+
+    t0 = std::chrono::high_resolution_clock::now();
+    long long s4 = multi_sum(arr, 4);
+    t1 = std::chrono::high_resolution_clock::now();
+    double d4 = std::chrono::duration&lt;double&gt;(t1 - t0).count();
+
+    std::cout &lt;&lt; "1: sum=" &lt;&lt; s1 &lt;&lt; " time=" &lt;&lt; d1 &lt;&lt; "s\n";
+    std::cout &lt;&lt; "2: sum=" &lt;&lt; s2 &lt;&lt; " time=" &lt;&lt; d2 &lt;&lt; "s\n";
+    std::cout &lt;&lt; "4: sum=" &lt;&lt; s4 &lt;&lt; " time=" &lt;&lt; d4 &lt;&lt; "s\n";
+    return 0;
+}</code></pre>
+</section>
+
+<section id="conclusion">
+<h2>Выводы</h2>
+<p>В ходе лабораторной работы было изучено влияние количества потоков на производительность вычислений при суммировании массива из 10 000 000 элементов.</p>
+<div class="ok">
+<strong>Основные выводы:</strong>
+<ol>
+<li>Многопоточность позволяет ускорить вычисления, если задачу можно разделить на независимые части.</li>
+<li>При использовании 2 и 4 потоков в C++ время выполнения уменьшается.</li>
+<li>Ускорение не линейное из-за накладных расходов на создание потоков.</li>
+<li>В Python модуль threading ограничен GIL. Для CPU-задач лучше использовать multiprocessing.</li>
+<li>Оптимальное число потоков обычно равно числу ядер процессора.</li>
+</ol>
+</div>
+</section>
+
+</main>
+
+<footer>Лабораторная работа №4 — Исследование многопоточности процессора</footer>
+<script>
+var runBtn=document.getElementById("run");
+var resetBtn=document.getElementById("reset");
+var szSel=document.getElementById("sz");
+var statusEl=document.getElementById("status");
+var tbody=document.getElementById("tbody");
+var canvas=document.getElementById("chart");
+var cx=canvas.getContext("2d");
+var results=[];
+
+function showStatus(t){statusEl.style.display="block";statusEl.textContent=t}
+function hideStatus(){statusEl.style.display="none";statusEl.textContent=""}
+
+function makeArray(n){
+  var a=new Int32Array(n);
+  for(var i=0;i<n;i++) a[i]=(i*17+23)%100+1;
+  return a;
+}
+
+function sumSingle(a){
+  var s=0;
+  for(var i=0;i<a.length;i++) s+=a[i];
+  return s;
+}
+
+function sumWorkers(arr,count){
+  return new Promise(function(resolve,reject){
+    var done=0,total=0,chunk=Math.ceil(arr.length/count);
+    for(var i=0;i<count;i++){
+      var s=i*chunk,e=Math.min(s+chunk,arr.length);
+      var part=arr.slice(s,e);
+      var w=new Worker("./worker.js");
+      w.onmessage=function(ev){
+        total+=ev.data.sum;
+        done++;
+        this.terminate();
+        if(done===count) resolve(total);
+      };
+      w.onerror=function(er){reject(er)};
+      w.postMessage({array:part});
+    }
+  });
+}
+
+function fmt(n){return Math.round(n).toLocaleString("ru-RU")}
+
+function renderTable(){
+  if(!results.length){
+    tbody.innerHTML='<tr><td colspan="4">Нажмите Запустить</td></tr>';
+    return;
+  }
+  var h="";
+  for(var i=0;i<results.length;i++){
+    var r=results[i];
+    var label=r.threads===1?"1 поток":r.threads+" потока";
+    var cls=r.speedup>=1.4?"pill good":r.speedup<1?"pill bad":"pill";
+    h+="<tr><td>"+label+"</td><td>"+r.time.toFixed(2)+" мс</td><td>"+fmt(r.sum)+"</td><td><span class='"+cls+"'>x"+r.speedup.toFixed(2)+"</span></td></tr>";
+  }
+  tbody.innerHTML=h;
+}
+
+function drawChart(){
+  var dpr=window.devicePixelRatio||1;
+  var w=canvas.clientWidth,h=canvas.clientHeight;
+  canvas.width=w*dpr;canvas.height=h*dpr;
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  cx.clearRect(0,0,w,h);
+  cx.font="14px Arial";cx.fillStyle="#9ca3af";
+  if(!results.length){cx.fillText("График появится после запуска",20,40);return}
+  var pad=50,gw=w-pad*2,gh=h-pad*2;
+  var mx=0;
+  for(var i=0;i<results.length;i++) if(results[i].time>mx) mx=results[i].time;
+  mx*=1.15;
+  var colors=["#4f46e5","#7c3aed","#a855f7"];
+  var gap=gw/results.length;
+  var bw=Math.min(80,gap*0.5);
+  cx.strokeStyle="#e5e7eb";cx.lineWidth=1;
+  for(var i=0;i<=4;i++){
+    var y=pad+gh/4*i;
+    cx.beginPath();cx.moveTo(pad,y);cx.lineTo(w-pad,y);cx.stroke();
+    cx.fillStyle="#9ca3af";cx.textAlign="right";
+    cx.fillText((mx-mx/4*i).toFixed(0)+" мс",pad-6,y+4);
+  }
+  for(var i=0;i<results.length;i++){
+    var r=results[i];
+    var bh=r.time/mx*gh;
+    var x=pad+gap*i+gap/2-bw/2;
+    var y=pad+gh-bh;
+    cx.fillStyle=colors[i%3];
+    cx.beginPath();
+    if(cx.roundRect){cx.roundRect(x,y,bw,bh,8);cx.fill()}
+    else{cx.fillRect(x,y,bw,bh)}
+    cx.fillStyle="#1a1a2e";cx.font="bold 13px Arial";cx.textAlign="center";
+    cx.fillText(r.time.toFixed(1)+" мс",x+bw/2,y-8);
+    cx.fillStyle="#6b7280";cx.font="13px Arial";
+    var lb=r.threads===1?"1 поток":r.threads+" потока";
+    cx.fillText(lb,x+bw/2,pad+gh+24);
+  }
+  cx.textAlign="left";
+}
+
+async function run(){
+  runBtn.disabled=true;szSel.disabled=true;
+  results=[];renderTable();drawChart();
+  try{
+    var n=Number(szSel.value);
+    showStatus("Создание массива...");
+    await new Promise(function(r){setTimeout(r,60)});
+    var arr=makeArray(n);
+
+    showStatus("1 поток...");
+    await new Promise(function(r){setTimeout(r,60)});
+    var t0=performance.now();
+    var s1=sumSingle(arr);
+    var d1=performance.now()-t0;
+    results.push({threads:1,time:d1,sum:s1,speedup:1});
+    renderTable();drawChart();
+
+    showStatus("2 потока...");
+    await new Promise(function(r){setTimeout(r,60)});
+    t0=performance.now();
+    var s2=await sumWorkers(arr,2);
+    var d2=performance.now()-t0;
+    results.push({threads:2,time:d2,sum:s2,speedup:d1/d2});
+    renderTable();drawChart();
+
+    showStatus("4 потока...");
+    await new Promise(function(r){setTimeout(r,60)});
+    t0=performance.now();
+    var s4=await sumWorkers(arr,4);
+    var d4=performance.now()-t0;
+    results.push({threads:4,time:d4,sum:s4,speedup:d1/d4});
+    renderTable();drawChart();
+
+    showStatus("Готово!");
+  }catch(e){
+    console.error(e);
+    showStatus("Ошибка: убедитесь что worker.js лежит рядом с index.html");
+  }
+  runBtn.disabled=false;szSel.disabled=false;
+}
+
+runBtn.onclick=run;
+resetBtn.onclick=function(){results=[];hideStatus();renderTable();drawChart()};
+
+document.querySelectorAll(".tab").forEach(function(b){
+  b.onclick=function(){
+    var lang=b.dataset.lang;
+    document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("on")});
+    b.classList.add("on");
+    document.getElementById("py").classList.toggle("hidden",lang!=="py");
+    document.getElementById("cp").classList.toggle("hidden",lang!=="cp");
+  };
+});
+
+window.onresize=drawChart;
+drawChart();
+</script>
+</body>
 </html>
